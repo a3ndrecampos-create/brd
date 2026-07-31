@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tom principal da identidade visual: mauve/rosé premium (ver Theme.kt para a paleta completa) -->
+    <color name="ic_launcher_background">#8E3B57</color>
+</resources>
