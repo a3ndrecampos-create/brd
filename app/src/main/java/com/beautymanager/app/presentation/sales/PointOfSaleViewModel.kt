@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -63,7 +64,7 @@ class PointOfSaleViewModel @Inject constructor(
             }
             // Primeira emissão do Flow já basta para uma busca pontual (evita manter
             // uma segunda coleta contínua só para a barra de busca do PDV).
-            val first = kotlinx.coroutines.flow.firstOrNull(productRepository.observeAll(query))
+            val first = productRepository.observeAll(query).firstOrNull()
             _uiState.value = _uiState.value.copy(searchResults = first ?: emptyList())
         }
     }
@@ -109,7 +110,7 @@ class PointOfSaleViewModel @Inject constructor(
         val state = _uiState.value
         if (state.cartItems.isEmpty()) return
         viewModelScope.launch {
-            val seller = kotlinx.coroutines.flow.firstOrNull(sessionRepository.observeCurrentUser())
+            val seller = sessionRepository.observeCurrentUser().firstOrNull()
             if (seller == null) {
                 _uiState.value = state.copy(errorMessage = "Sessão expirada — faça login novamente.")
                 return@launch

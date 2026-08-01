@@ -38,7 +38,7 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun DashboardContent(metrics: DashboardMetrics) {
+private fun ColumnScope.DashboardContent(metrics: DashboardMetrics) {
     val currency = remember(metrics) { NumberFormat.getCurrencyInstance(Locale("pt", "BR")) }
 
     LazyVerticalGrid(

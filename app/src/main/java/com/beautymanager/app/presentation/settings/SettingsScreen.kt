@@ -204,6 +204,7 @@ private fun SupplierSection(suppliers: List<Supplier>, onAdd: (String, String) -
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ReminderRuleSection(
     rules: List<ReminderRule>,

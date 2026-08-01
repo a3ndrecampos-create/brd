@@ -177,6 +177,12 @@ private fun ReminderEntity.toDomain() = Reminder(
     generatedAtEpochMillis = generatedAtEpochMillis
 )
 
+private fun Reminder.toEntity() = ReminderEntity(
+    id = id, customerId = customerId, productId = productId, ruleId = ruleId,
+    daysSincePurchase = daysSincePurchase, status = status.name,
+    generatedAtEpochMillis = generatedAtEpochMillis
+)
+
 private fun UserEntity.toDomain() = AppUser(
     id = id, name = name, role = UserRole.valueOf(role), canManageProducts = canManageProducts,
     canManageSales = canManageSales, canViewReports = canViewReports, canManageUsers = canManageUsers

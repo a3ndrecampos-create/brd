@@ -172,7 +172,7 @@ private fun SearchResultRow(product: Product, currency: NumberFormat, onClick: (
         headlineContent = { Text(product.name) },
         supportingContent = { Text("Estoque: ${product.quantity}") },
         trailingContent = { Text(currency.format(product.salePrice)) },
-        modifier = Modifier.clickable(onClick)
+        modifier = Modifier.clickable(onClick = onClick)
     )
 }
 

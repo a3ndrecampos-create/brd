@@ -20,7 +20,7 @@ import com.beautymanager.app.data.local.entity.*
         UserEntity::class
     ],
     version = 1,
-    exportSchema = true
+    exportSchema = false
 )
 abstract class BeautyManagerDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
