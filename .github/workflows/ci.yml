@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Cache Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: ktlint
+        run: gradle ktlintCheck
+
+      - name: Detekt
+        run: gradle detekt
+
+      - name: Testes unitários + cobertura
+        run: gradle test koverXmlReport
+
+      - name: Publicar relatório de cobertura
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura
+          path: "**/build/reports/kover/report.xml"
+
+      - name: Build de debug
+        run: gradle assembleDebug
+
+      - name: Publicar APK de debug
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk

@@ -14,5 +14,12 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "BeautyManager"
+rootProject.name = "TaPago"
+
 include(":app")
+include(":core:designsystem")
+include(":core:database")
+include(":core:network")
+include(":core:common")
+include(":feature:tracking")
+include(":feature:photoshare")

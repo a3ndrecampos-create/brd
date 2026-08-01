@@ -1,0 +1,19 @@
+build:
+  maxIssues: 0
+
+style:
+  MagicNumber:
+    active: false # muitos números "mágicos" legítimos em cálculos de UI/GPS
+  ReturnCount:
+    active: true
+    max: 4
+
+complexity:
+  LongMethod:
+    threshold: 60
+  LongParameterList:
+    functionThreshold: 7
+
+naming:
+  FunctionNaming:
+    active: true
