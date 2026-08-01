@@ -40,7 +40,18 @@ class CustomerListViewModel @Inject constructor(
     fun onOpenAddDialog() { dialogOpenFlow.value = true }
     fun onDismissAddDialog() { dialogOpenFlow.value = false }
 
-    fun onAddCustomer(name: String, phone: String, whatsapp: String) {
+    fun onAddCustomer(
+        name: String,
+        phone: String,
+        whatsapp: String,
+        zipCode: String,
+        street: String,
+        number: String,
+        complement: String,
+        neighborhood: String,
+        city: String,
+        state: String
+    ) {
         if (name.isBlank()) return
         viewModelScope.launch {
             customerRepository.upsert(
@@ -48,10 +59,28 @@ class CustomerListViewModel @Inject constructor(
                     name = name,
                     phone = phone.ifBlank { null },
                     whatsapp = whatsapp.ifBlank { phone.ifBlank { null } },
+                    address = buildFullAddress(zipCode, street, number, complement, neighborhood, city, state),
                     createdAtEpochMillis = System.currentTimeMillis()
                 )
             )
             dialogOpenFlow.value = false
         }
     }
+}
+
+/** Monta um endereço completo e legível a partir dos campos separados do formulário. */
+fun buildFullAddress(
+    zipCode: String, street: String, number: String, complement: String,
+    neighborhood: String, city: String, state: String
+): String? {
+    val streetLine = street.ifBlank { null }?.let { if (number.isNotBlank()) "$it, $number" else it }
+    val cityStateLine = listOfNotNull(city.ifBlank { null }, state.ifBlank { null }).joinToString(" - ").ifBlank { null }
+    val parts = listOfNotNull(
+        streetLine,
+        complement.ifBlank { null },
+        neighborhood.ifBlank { null },
+        cityStateLine,
+        zipCode.ifBlank { null }?.let { "CEP $it" }
+    )
+    return parts.joinToString(", ").ifBlank { null }
 }

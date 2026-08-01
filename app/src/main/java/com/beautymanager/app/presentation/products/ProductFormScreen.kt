@@ -1,9 +1,15 @@
 package com.beautymanager.app.presentation.products
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
@@ -14,10 +20,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,6 +38,10 @@ fun ProductFormScreen(
     val state by viewModel.formState.collectAsState()
     val options by viewModel.options.collectAsState()
     var showScanner by remember { mutableStateOf(false) }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) viewModel.onFieldChange { s -> s.copy(photoUri = uri.toString()) }
+    }
 
     LaunchedEffect(productId) {
         if (productId != null) viewModel.loadProduct(productId)
@@ -81,6 +94,39 @@ fun ProductFormScreen(
             state.barcodeLookupMessage?.let {
                 Spacer(Modifier.height(4.dp))
                 Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+            }
+
+            Spacer(Modifier.height(16.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (state.photoUri.isNullOrBlank()) {
+                        Icon(Icons.Filled.AddAPhoto, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        AsyncImage(
+                            model = state.photoUri,
+                            contentDescription = "Foto do produto",
+                            modifier = Modifier.size(72.dp).clip(RoundedCornerShape(12.dp))
+                        )
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text(
+                        if (state.photoUri.isNullOrBlank()) "Nenhuma foto ainda" else "Foto selecionada",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    TextButton(
+                        onClick = {
+                            photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        }
+                    ) { Text(if (state.photoUri.isNullOrBlank()) "Escolher foto" else "Trocar foto") }
+                }
             }
 
             Spacer(Modifier.height(12.dp))

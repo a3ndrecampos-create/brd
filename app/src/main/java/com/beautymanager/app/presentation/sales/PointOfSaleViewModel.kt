@@ -69,6 +69,20 @@ class PointOfSaleViewModel @Inject constructor(
         }
     }
 
+    /** Chamado quando o scanner de câmera (PDV) lê um código de barras durante a venda. */
+    fun onBarcodeScanned(barcode: String) {
+        viewModelScope.launch {
+            val product = productRepository.getByBarcode(barcode)
+            if (product != null) {
+                onAddToCart(product)
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "Nenhum produto cadastrado com esse código de barras."
+                )
+            }
+        }
+    }
+
     fun onAddToCart(product: Product) {
         val current = _uiState.value.cartItems
         val existing = current.find { it.product.id == product.id }

@@ -3,14 +3,13 @@ package com.beautymanager.app.presentation.customers
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -30,6 +29,7 @@ fun CustomerDetailScreen(
     val state by viewModel.uiState.collectAsState()
     val currency = remember { NumberFormat.getCurrencyInstance(Locale("pt", "BR")) }
     val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("pt", "BR")) }
+    var showEditDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(customerId) { viewModel.load(customerId) }
 
@@ -37,13 +37,20 @@ fun CustomerDetailScreen(
         topBar = {
             TopAppBar(
                 title = { Text(state.customer?.name ?: "Cliente") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Voltar") } }
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Voltar") } },
+                actions = {
+                    IconButton(onClick = { showEditDialog = true }) { Icon(Icons.Filled.Edit, contentDescription = "Editar cliente") }
+                }
             )
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
             state.customer?.phone?.let {
                 Text(it, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            state.customer?.address?.let {
+                Spacer(Modifier.height(4.dp))
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.height(16.dp))
 
@@ -74,6 +81,52 @@ fun CustomerDetailScreen(
             }
         }
     }
+
+    if (showEditDialog && state.customer != null) {
+        EditCustomerDialog(
+            customer = state.customer!!,
+            onDismiss = { showEditDialog = false },
+            onConfirm = { name, phone, whatsapp, address ->
+                viewModel.onUpdateCustomer(name, phone, whatsapp, address)
+                showEditDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun EditCustomerDialog(
+    customer: com.beautymanager.app.domain.model.Customer,
+    onDismiss: () -> Unit,
+    onConfirm: (name: String, phone: String, whatsapp: String, address: String) -> Unit
+) {
+    var name by remember { mutableStateOf(customer.name) }
+    var phone by remember { mutableStateOf(customer.phone ?: "") }
+    var whatsapp by remember { mutableStateOf(customer.whatsapp ?: "") }
+    var address by remember { mutableStateOf(customer.address ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Editar cliente") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nome") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Telefone") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(value = whatsapp, onValueChange = { whatsapp = it }, label = { Text("WhatsApp") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(value = address, onValueChange = { address = it }, label = { Text("Endereço completo") }, minLines = 3, modifier = Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = name.isNotBlank(),
+                onClick = { onConfirm(name, phone, whatsapp, address) }
+            ) { Text("Salvar") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+    )
 }
 
 @Composable

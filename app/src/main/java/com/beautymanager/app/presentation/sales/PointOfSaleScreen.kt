@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -19,6 +20,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.beautymanager.app.domain.model.CartItem
 import com.beautymanager.app.domain.model.PaymentMethod
 import com.beautymanager.app.domain.model.Product
+import com.beautymanager.app.presentation.products.BarcodeScannerScreen
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -27,6 +29,18 @@ fun PointOfSaleScreen(viewModel: PointOfSaleViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsState()
     val currency = remember { NumberFormat.getCurrencyInstance(Locale("pt", "BR")) }
     val context = androidx.compose.ui.platform.LocalContext.current
+    var showScanner by remember { mutableStateOf(false) }
+
+    if (showScanner) {
+        BarcodeScannerScreen(
+            onBarcodeDetected = { code ->
+                showScanner = false
+                viewModel.onBarcodeScanned(code)
+            },
+            onClose = { showScanner = false }
+        )
+        return
+    }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Venda", style = MaterialTheme.typography.headlineMedium)
@@ -37,6 +51,11 @@ fun PointOfSaleScreen(viewModel: PointOfSaleViewModel = hiltViewModel()) {
             onValueChange = viewModel::onSearchQueryChange,
             placeholder = { Text("Buscar produto ou ler código de barras") },
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+            trailingIcon = {
+                IconButton(onClick = { showScanner = true }) {
+                    Icon(Icons.Filled.QrCodeScanner, contentDescription = "Escanear código de barras")
+                }
+            },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )

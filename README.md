@@ -1,72 +1,125 @@
-# Tá Pago 🏃‍♂️📸
+# BeautyManager
 
-App Android de corrida/caminhada que incentiva cuidar da saúde: rastreia o
-percurso via GPS e, ao final, tira uma foto que já sai com as estatísticas
-da atividade (distância, tempo, ritmo, calorias) sobrepostas — pronta para
-compartilhar no Instagram Stories em um toque.
-
-Inspirado no "Stats Sticker" do Strava, mas com o overlay renderizado
-**nativamente pelo próprio app** (não depende do editor do Instagram).
+Sistema de gestão para loja de cosméticos (PDV + estoque + CRM + lembretes de
+recompra), pensado para rodar 100% local em um único aparelho — sem backend, sem
+conta na nuvem, sem mensalidade de servidor. Arquitetura preparada para, no
+futuro, suportar múltiplas lojas/dispositivos trocando os repositórios locais por
+uma implementação com sincronização, sem tocar em domínio ou telas.
 
 ## Stack
 
-Kotlin + Jetpack Compose, Clean Architecture (domain/data/presentation),
-modularização por feature, Hilt para DI, CameraX para captura de foto,
-FusedLocationProviderClient para GPS, kotlinx.serialization para rotas
-tipadas de navegação.
+- Kotlin + Jetpack Compose (Material 3) — identidade visual própria (mauve/dourado),
+  sem Material You dinâmico, para manter a marca consistente em qualquer aparelho
+- Arquitetura em camadas: `domain` (modelos, contratos, regras de negócio) →
+  `data` (Room + Retrofit) → `presentation` (MVVM: ViewModel + Compose)
+- Hilt para injeção de dependência
+- Room (SQLite) para persistência local
+- DataStore para sessão (usuário logado, biometria, tema)
+- Retrofit + kotlinx.serialization para consultar a **Open Beauty Facts**
+  (`https://world.openbeautyfacts.org`) — API pública/gratuita de produtos de
+  cosméticos, usada só para sugerir nome/marca/foto ao ler um código de barras novo
+- CameraX + ML Kit Barcode Scanning para o leitor de código de barras (câmera)
+- WorkManager (+ Hilt Worker) para recalcular os lembretes de recompra uma vez por dia
+- Gráficos feitos com Canvas nativo do Compose (sem lib de terceiros)
 
 ## Estrutura
 
 ```
-app/                    # módulo de aplicação — navegação e Application class
+domain/
+  model/        Product, Customer, Sale, SaleItem, StockMovement, Reminder,
+                ReminderRule, AppUser, DashboardMetrics, CartItem...
+  repository/    Contratos (interfaces) — o único ponto que o domínio conhece
+  usecase/       RegisterSaleUseCase, LookupProductByBarcodeUseCase,
+                GenerateRemindersUseCase, DashboardMetricsUseCase,
+                BuildWhatsAppMessageUseCase
+
+data/
+  local/entity/  Entidades Room (1:1 com as tabelas)
+  local/dao/     Queries, incluindo as agregações (faturamento, lucro, top
+                produtos, aniversariantes, última compra por categoria)
+  local/database/ BeautyManagerDatabase (Room)
+  remote/barcode/ BarcodeApi (Open Beauty Facts)
+  repository/    Implementações + mappers Entity <-> Domínio
+
+presentation/
+  auth/          Login por PIN compartilhado (papéis Admin/Funcionário)
+  dashboard/     Métricas do dia + gráfico de produtos mais vendidos
+  products/      Lista, formulário (com scanner de código de barras)
+  sales/         PDV (carrinho, desconto, forma de pagamento, checkout)
+  customers/     Lista + perfil completo (histórico, ticket médio, etc.)
+  stock/         Entrada/saída/ajuste/transferência + histórico
+  reports/       Faturamento/lucro por período + produtos mais vendidos
+  reminders/     Lista de lembretes pendentes + envio via WhatsApp
+  settings/      Categorias, marcas, fornecedores, regras de lembrete, usuários, tema
+  navigation/    Gate de login + shell com bottom nav
+
 core/
-  designsystem/         # tema, cores, tipografia (Material 3)
-  common/                # Outcome<T> e utilitários compartilhados
-  database/              # placeholder — Room será adicionado quando o
-                          # histórico de corridas for implementado
-  network/                # placeholder — endpoints de backend futuros
-feature/
-  tracking/               # rastreamento por GPS + tela de corrida/caminhada
-  photoshare/              # câmera + overlay de estatísticas + share pro Instagram
+  di/            Módulos Hilt (Database, Network, Repository)
+  util/          SecurityUtils (hash de PIN)
+  work/          DailyMaintenanceWorker (regenera lembretes 1x/dia)
 ```
 
-## Fluxo principal implementado
+## Decisões importantes (e por quê)
 
-1. Usuário escolhe "Iniciar corrida" ou "Iniciar caminhada" (`TrackingScreen`)
-2. O app rastreia a rota via GPS em tempo real, mostrando distância/tempo/ritmo
-3. Ao finalizar, a sessão é salva e o app navega para `PhotoShareScreen`
-4. Usuário tira uma foto (CameraX); o app desenha o overlay de estatísticas
-   sobre o bitmap (`StatsOverlayComposer`)
-5. Um toque em "Compartilhar no Instagram Stories" abre o Instagram já com
-   a imagem pronta como story (`InstagramStoriesSharer`), com fallback para
-   o share sheet padrão do Android se o Instagram não estiver instalado
+- **100% local por enquanto**: nenhuma sincronização entre dispositivos. Se no
+  futuro for necessário multi-loja/multi-funcionário em dispositivos diferentes,
+  o ponto de troca é `RepositoryModule` — os `UseCase`s e telas não mudam.
+- **Open Beauty Facts em vez de Open Food Facts**: mesma API, mesmo formato, mas
+  o catálogo é de cosméticos/higiene/perfumaria — mais aderente ao negócio. É uma
+  base colaborativa, então a cobertura varia; quando não encontrar, cai para
+  cadastro manual e o código nunca é pedido de novo (fica salvo localmente).
+- **PIN com hash SHA-256 + salt fixo**: funcional para este estágio, mas antes de
+  ir para produção o ideal é trocar o salt fixo por um salt por instalação gerado
+  no Android Keystore.
+- **Sem lib de gráficos de terceiros**: o Vico (uma opção comum) ainda está em
+  beta e sua API muda entre versões; para os gráficos simples que o app precisa
+  (barras de produtos mais vendidos), um Canvas nativo é mais previsível e leve.
 
-## Como abrir
+## CI/CD
 
-1. Abra a pasta no Android Studio (Koala ou mais recente)
-2. Sincronize o Gradle
-3. Rode o módulo `app` num dispositivo/emulador com câmera e GPS
+Existe um workflow em `.github/workflows/build-apk.yml` que compila um APK de
+debug a cada push/PR nas branches `main`/`master` (ou manualmente pela aba
+Actions, botão "Run workflow"). O APK fica disponível como artefato da execução
+— aba **Actions** do repositório → clique na execução → seção **Artifacts**
+(`beautymanager-debug-apk.zip`, contém o `.apk` dentro). Não é um APK assinado
+para a Play Store, é o build de debug para testar no aparelho.
 
-> Builds de release **não** são feitos localmente — apenas via GitHub
-> Actions (`.github/workflows/release.yml`), usando a keystore como secret
-> em Base64. Nenhuma credencial fica no repositório.
+## O que já foi fechado nesta rodada
 
-## CI
+1. **Biometria de verdade**: `BiometricPrompt` funcional (login sem PIN quando
+   habilitado em Configurações, por usuário).
+2. **Marca casada automaticamente**: ao ler um código de barras novo, o nome de
+   marca vindo da Open Beauty Facts agora vira (ou casa com) um `Brand` real no
+   catálogo, em vez de ficar como texto solto.
+3. **Permissões por funcionário**: `AppUser.canManageProducts/canViewReports/
+   canManageUsers` agora realmente escondem, respectivamente, o botão de
+   adicionar/editar produto, o item "Relatórios" do menu e a seção "Usuários"
+   em Configurações.
+4. **Comprovante de venda**: ao finalizar uma venda no PDV, aparece um resumo
+   com itens/desconto/total e um botão "Compartilhar" (abre o seletor do
+   Android — WhatsApp, e-mail, etc. — com o comprovante em texto).
+5. **Backup/restauração**: em Configurações, "Exportar backup" salva um
+   `.json` com todo o banco (produtos, clientes, vendas, estoque...) via seletor
+   de arquivos do Android; "Restaurar backup" lê um `.json` e substitui os dados
+   atuais (com confirmação explícita, porque é destrutivo).
 
-- `.github/workflows/ci.yml`: roda em cada PR — ktlint, detekt, testes
-  unitários + cobertura (Kover), build de debug
-- `.github/workflows/release.yml`: disparado por tag `v*` — build assinado
-  do App Bundle
+## O que ainda é TODO (próximas rodadas)
 
-## Próximos passos (fora do escopo deste incremento)
+1. **Exportação de relatórios em PDF/Excel** — os botões já estão na tela de
+   Relatórios, falta ligar a geração do arquivo (ver skill de PDF do projeto para
+   PDF; para Excel, evitar Apache POI em mobile — considerar uma lib leve de xlsx
+   ou até CSV como primeira versão).
+2. **Impressão térmica do comprovante** — hoje o comprovante é compartilhado como
+   texto; impressão de verdade depende do SDK do modelo de impressora térmica
+   usado na loja (ex.: Epson ePOS, Bematech).
+3. **Sugestões com IA** (mencionado no briefing): próxima probabilidade de recompra
+   por cliente, recomendação de produto por cliente e previsão de que mensagens de
+   WhatsApp convertem mais — é um módulo à parte, precisa de dados acumulados de
+   uso antes de valer a pena implementar.
 
-- [ ] Persistência com Room (hoje as sessões ficam em memória, perdidas ao
-      fechar o app) — trocar `InMemoryRunSessionRepository`
-- [ ] Tela de histórico de corridas
-- [ ] Mapa real do percurso (Google Maps Compose) na tela de tracking e no
-      overlay da foto
-- [ ] Onboarding + permissões (localização em segundo plano, câmera)
-- [ ] Monetização: anúncios + assinatura com teste grátis (Play Billing),
-      conforme especificação técnica original
-- [ ] Testes de UI (Compose Testing) para `TrackingScreen` e `PhotoShareScreen`
-- [ ] Ícone do app e splash screen
+## Rodando o projeto
+
+Abra a pasta no Android Studio (Ladybug ou mais recente), deixe o Gradle
+sincronizar e rode no emulador ou aparelho físico (`minSdk 26`). Não é
+necessária nenhuma chave de API para funcionar — a Open Beauty Facts é pública.
+Ou, sem instalar nada, deixe o GitHub Actions gerar o APK (ver seção CI/CD acima).

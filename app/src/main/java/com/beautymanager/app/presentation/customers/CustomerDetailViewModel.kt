@@ -44,4 +44,19 @@ class CustomerDetailViewModel @Inject constructor(
             }
         }
     }
+
+    fun onUpdateCustomer(name: String, phone: String, whatsapp: String, address: String) {
+        val current = _uiState.value.customer ?: return
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            val updated = current.copy(
+                name = name,
+                phone = phone.ifBlank { null },
+                whatsapp = whatsapp.ifBlank { null },
+                address = address.ifBlank { null }
+            )
+            customerRepository.upsert(updated)
+            _uiState.value = _uiState.value.copy(customer = updated)
+        }
+    }
 }
