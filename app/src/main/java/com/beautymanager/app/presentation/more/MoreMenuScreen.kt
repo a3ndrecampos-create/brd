@@ -11,9 +11,13 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.beautymanager.app.presentation.common.CurrentUserViewModel
 
 private data class MoreItem(val label: String, val subtitle: String, val icon: ImageVector, val onClick: () -> Unit)
 
@@ -22,14 +26,19 @@ fun MoreMenuScreen(
     onOpenStock: () -> Unit,
     onOpenReports: () -> Unit,
     onOpenReminders: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    currentUserViewModel: CurrentUserViewModel = hiltViewModel()
 ) {
-    val items = listOf(
-        MoreItem("Estoque", "Entradas, saídas, ajustes e transferências", Icons.Filled.Inventory, onOpenStock),
-        MoreItem("Relatórios", "Faturamento, lucro e produtos mais vendidos", Icons.Filled.BarChart, onOpenReports),
-        MoreItem("Lembretes", "Clientes prontos para recompra", Icons.Filled.NotificationsActive, onOpenReminders),
-        MoreItem("Configurações", "Categorias, marcas, fornecedores e usuários", Icons.Filled.Settings, onOpenSettings)
-    )
+    val currentUser by currentUserViewModel.currentUser.collectAsState()
+
+    val items = buildList {
+        add(MoreItem("Estoque", "Entradas, saídas, ajustes e transferências", Icons.Filled.Inventory, onOpenStock))
+        if (currentUser?.canViewReports != false) {
+            add(MoreItem("Relatórios", "Faturamento, lucro e produtos mais vendidos", Icons.Filled.BarChart, onOpenReports))
+        }
+        add(MoreItem("Lembretes", "Clientes prontos para recompra", Icons.Filled.NotificationsActive, onOpenReminders))
+        add(MoreItem("Configurações", "Categorias, marcas, fornecedores e usuários", Icons.Filled.Settings, onOpenSettings))
+    }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Mais", style = MaterialTheme.typography.headlineMedium)

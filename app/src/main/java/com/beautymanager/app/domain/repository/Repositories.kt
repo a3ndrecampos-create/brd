@@ -82,10 +82,13 @@ interface UserRepository {
 interface SessionRepository {
     suspend fun isAnyUserConfigured(): Boolean
     suspend fun loginWithPin(pin: String): AppUser?
+    /** Usado só depois que o BiometricPrompt já confirmou a identidade no nível do SO. */
+    suspend fun loginDirectly(userId: Long): AppUser?
     fun observeCurrentUser(): Flow<AppUser?>
-    suspend fun logout()
+    suspend fun logout(): Unit
     suspend fun isBiometricEnabled(): Boolean
-    suspend fun setBiometricEnabled(enabled: Boolean)
+    suspend fun setBiometricEnabled(enabled: Boolean, userId: Long? = null)
+    suspend fun getBiometricUserId(): Long?
     fun observeThemeMode(): Flow<ThemeMode>
     suspend fun setThemeMode(mode: ThemeMode)
 }

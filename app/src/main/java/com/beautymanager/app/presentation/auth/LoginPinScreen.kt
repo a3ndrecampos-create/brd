@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.beautymanager.app.core.util.rememberBiometricAuthenticator
 
 private val KEYPAD_ROWS = listOf(
     listOf("1", "2", "3"),
@@ -31,6 +32,9 @@ fun LoginPinScreen(
     viewModel: LoginPinViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+    val authenticateWithBiometrics = rememberBiometricAuthenticator(
+        onSuccess = { viewModel.onBiometricSuccess(onAuthenticated) }
+    )
 
     // Envia automaticamente quando o PIN atinge 4 dígitos (login) — evita um toque extra.
     LaunchedEffect(state.pin) {
@@ -74,8 +78,7 @@ fun LoginPinScreen(
                         "back" -> KeypadIconButton(Icons.Filled.Backspace, "Apagar") { viewModel.onBackspace() }
                         "bio" -> if (state.biometricAvailableAndEnabled) {
                             KeypadIconButton(Icons.Filled.Fingerprint, "Biometria") {
-                                // TODO: acionar androidx.biometric.BiometricPrompt aqui e, em caso de sucesso,
-                                // chamar onAuthenticated() diretamente sem exigir o PIN.
+                                authenticateWithBiometrics()
                             }
                         } else {
                             Spacer(Modifier.size(64.dp))

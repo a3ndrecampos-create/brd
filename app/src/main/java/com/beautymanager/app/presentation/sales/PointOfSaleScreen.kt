@@ -1,5 +1,6 @@
 package com.beautymanager.app.presentation.sales
 
+import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,13 +26,7 @@ import java.util.Locale
 fun PointOfSaleScreen(viewModel: PointOfSaleViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsState()
     val currency = remember { NumberFormat.getCurrencyInstance(Locale("pt", "BR")) }
-
-    LaunchedEffect(state.lastSaleId) {
-        if (state.lastSaleId != null) {
-            // TODO: disparar impressão/exibição do comprovante aqui antes de reconhecer.
-            viewModel.onSaleAcknowledged()
-        }
-    }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Venda", style = MaterialTheme.typography.headlineMedium)
@@ -108,6 +103,67 @@ fun PointOfSaleScreen(viewModel: PointOfSaleViewModel = hiltViewModel()) {
             modifier = Modifier.fillMaxWidth().height(52.dp)
         ) { Text("Finalizar venda") }
     }
+
+    state.completedSale?.let { sale ->
+        ReceiptDialog(
+            sale = sale,
+            currency = currency,
+            onShare = {
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, buildReceiptText(sale, currency))
+                }
+                context.startActivity(Intent.createChooser(intent, "Compartilhar comprovante"))
+            },
+            onDismiss = viewModel::onReceiptDismissed
+        )
+    }
+}
+
+@Composable
+private fun ReceiptDialog(sale: CompletedSaleSummary, currency: NumberFormat, onShare: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Venda #${sale.saleId} concluída ✅") },
+        text = {
+            Column {
+                sale.customerName?.let { Text("Cliente: $it", style = MaterialTheme.typography.bodyMedium) }
+                Text("Pagamento: ${sale.paymentMethod.name}", style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(8.dp))
+                sale.items.forEach { item ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("${item.quantity}x ${item.product.name}", style = MaterialTheme.typography.bodyMedium)
+                        Text(currency.format(item.subtotal), style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                if (sale.discount > 0) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Desconto", style = MaterialTheme.typography.bodyMedium)
+                        Text("- ${currency.format(sale.discount)}", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Total", style = MaterialTheme.typography.titleMedium)
+                    Text(currency.format(sale.total), style = MaterialTheme.typography.titleMedium)
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onShare) { Text("Compartilhar") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Fechar") } }
+    )
+}
+
+/** Comprovante em texto simples — serve tanto para compartilhar (WhatsApp, etc.) quanto de base para impressão futura. */
+private fun buildReceiptText(sale: CompletedSaleSummary, currency: NumberFormat): String = buildString {
+    appendLine("BeautyManager — Comprovante de venda #${sale.saleId}")
+    sale.customerName?.let { appendLine("Cliente: $it") }
+    appendLine("Pagamento: ${sale.paymentMethod.name}")
+    appendLine("---")
+    sale.items.forEach { appendLine("${it.quantity}x ${it.product.name} — ${currency.format(it.subtotal)}") }
+    if (sale.discount > 0) appendLine("Desconto: -${currency.format(sale.discount)}")
+    appendLine("---")
+    appendLine("Total: ${currency.format(sale.total)}")
 }
 
 @Composable

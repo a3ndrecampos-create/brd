@@ -18,6 +18,16 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+data class CompletedSaleSummary(
+    val saleId: Long,
+    val items: List<CartItem>,
+    val total: Double,
+    val discount: Double,
+    val paymentMethod: PaymentMethod,
+    val customerName: String?,
+    val dateTimeEpochMillis: Long
+)
+
 data class PointOfSaleUiState(
     val searchQuery: String = "",
     val searchResults: List<Product> = emptyList(),
@@ -26,7 +36,7 @@ data class PointOfSaleUiState(
     val paymentMethod: PaymentMethod = PaymentMethod.PIX,
     val selectedCustomerId: Long? = null,
     val selectedCustomerName: String? = null,
-    val lastSaleId: Long? = null,
+    val completedSale: CompletedSaleSummary? = null,
     val errorMessage: String? = null
 ) {
     val subtotal: Double get() = cartItems.sumOf { it.subtotal }
@@ -113,14 +123,24 @@ class PointOfSaleViewModel @Inject constructor(
             )
             result.fold(
                 onSuccess = { saleId ->
-                    _uiState.value = PointOfSaleUiState(lastSaleId = saleId)
+                    _uiState.value = PointOfSaleUiState(
+                        completedSale = CompletedSaleSummary(
+                            saleId = saleId,
+                            items = state.cartItems,
+                            total = state.total,
+                            discount = state.discount.toDoubleOrNull() ?: 0.0,
+                            paymentMethod = state.paymentMethod,
+                            customerName = state.selectedCustomerName,
+                            dateTimeEpochMillis = System.currentTimeMillis()
+                        )
+                    )
                 },
                 onFailure = { e -> _uiState.value = state.copy(errorMessage = e.message) }
             )
         }
     }
 
-    fun onSaleAcknowledged() {
-        _uiState.value = _uiState.value.copy(lastSaleId = null)
+    fun onReceiptDismissed() {
+        _uiState.value = _uiState.value.copy(completedSale = null)
     }
 }

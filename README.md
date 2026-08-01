@@ -75,28 +75,51 @@ core/
   beta e sua API muda entre versões; para os gráficos simples que o app precisa
   (barras de produtos mais vendidos), um Canvas nativo é mais previsível e leve.
 
+## CI/CD
+
+Existe um workflow em `.github/workflows/build-apk.yml` que compila um APK de
+debug a cada push/PR nas branches `main`/`master` (ou manualmente pela aba
+Actions, botão "Run workflow"). O APK fica disponível como artefato da execução
+— aba **Actions** do repositório → clique na execução → seção **Artifacts**
+(`beautymanager-debug-apk.zip`, contém o `.apk` dentro). Não é um APK assinado
+para a Play Store, é o build de debug para testar no aparelho.
+
+## O que já foi fechado nesta rodada
+
+1. **Biometria de verdade**: `BiometricPrompt` funcional (login sem PIN quando
+   habilitado em Configurações, por usuário).
+2. **Marca casada automaticamente**: ao ler um código de barras novo, o nome de
+   marca vindo da Open Beauty Facts agora vira (ou casa com) um `Brand` real no
+   catálogo, em vez de ficar como texto solto.
+3. **Permissões por funcionário**: `AppUser.canManageProducts/canViewReports/
+   canManageUsers` agora realmente escondem, respectivamente, o botão de
+   adicionar/editar produto, o item "Relatórios" do menu e a seção "Usuários"
+   em Configurações.
+4. **Comprovante de venda**: ao finalizar uma venda no PDV, aparece um resumo
+   com itens/desconto/total e um botão "Compartilhar" (abre o seletor do
+   Android — WhatsApp, e-mail, etc. — com o comprovante em texto).
+5. **Backup/restauração**: em Configurações, "Exportar backup" salva um
+   `.json` com todo o banco (produtos, clientes, vendas, estoque...) via seletor
+   de arquivos do Android; "Restaurar backup" lê um `.json` e substitui os dados
+   atuais (com confirmação explícita, porque é destrutivo).
+
 ## O que ainda é TODO (próximas rodadas)
 
 1. **Exportação de relatórios em PDF/Excel** — os botões já estão na tela de
    Relatórios, falta ligar a geração do arquivo (ver skill de PDF do projeto para
    PDF; para Excel, evitar Apache POI em mobile — considerar uma lib leve de xlsx
    ou até CSV como primeira versão).
-2. **Biometria**: o botão já aparece no teclado de PIN quando habilitada em
-   Configurações, mas falta plugar o `BiometricPrompt` de fato (`LoginPinScreen.kt`).
-3. **Casar `brandName` da Open Beauty Facts com uma marca cadastrada** — hoje o
-   texto vem livre (ex.: "Natura, Avon") e não vira automaticamente um `Brand`.
-4. **Sugestões com IA** (mencionado no briefing): próxima probabilidade de recompra
+2. **Impressão térmica do comprovante** — hoje o comprovante é compartilhado como
+   texto; impressão de verdade depende do SDK do modelo de impressora térmica
+   usado na loja (ex.: Epson ePOS, Bematech).
+3. **Sugestões com IA** (mencionado no briefing): próxima probabilidade de recompra
    por cliente, recomendação de produto por cliente e previsão de que mensagens de
    WhatsApp convertem mais — é um módulo à parte, precisa de dados acumulados de
    uso antes de valer a pena implementar.
-5. **Impressão/emissão de comprovante** ao finalizar uma venda no PDV.
-6. **Backup/restauração** — hoje não existe nenhum mecanismo; dá pra começar
-   simples exportando/importando um dump do Room para um arquivo local.
-7. **Permissões granulares por funcionário** — o modelo (`AppUser.canManageX`)
-   já existe, mas as telas ainda não checam essas flags antes de liberar ações.
 
 ## Rodando o projeto
 
 Abra a pasta no Android Studio (Ladybug ou mais recente), deixe o Gradle
 sincronizar e rode no emulador ou aparelho físico (`minSdk 26`). Não é
 necessária nenhuma chave de API para funcionar — a Open Beauty Facts é pública.
+Ou, sem instalar nada, deixe o GitHub Actions gerar o APK (ver seção CI/CD acima).

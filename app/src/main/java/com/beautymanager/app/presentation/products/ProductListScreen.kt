@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.beautymanager.app.domain.model.Product
+import com.beautymanager.app.presentation.common.CurrentUserViewModel
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -26,14 +27,19 @@ import java.util.Locale
 fun ProductListScreen(
     onAddProduct: () -> Unit,
     onEditProduct: (Long) -> Unit,
-    viewModel: ProductListViewModel = hiltViewModel()
+    viewModel: ProductListViewModel = hiltViewModel(),
+    currentUserViewModel: CurrentUserViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+    val currentUser by currentUserViewModel.currentUser.collectAsState()
+    val canManageProducts = currentUser?.canManageProducts ?: false
     val currency = remember { NumberFormat.getCurrencyInstance(Locale("pt", "BR")) }
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddProduct) { Icon(Icons.Filled.Add, contentDescription = "Adicionar produto") }
+            if (canManageProducts) {
+                FloatingActionButton(onClick = onAddProduct) { Icon(Icons.Filled.Add, contentDescription = "Adicionar produto") }
+            }
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
@@ -56,7 +62,10 @@ fun ProductListScreen(
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(state.products, key = { it.id }) { product ->
-                        ProductRow(product, currency, onClick = { onEditProduct(product.id) })
+                        ProductRow(
+                            product, currency,
+                            onClick = { if (canManageProducts) onEditProduct(product.id) }
+                        )
                     }
                 }
             }

@@ -1,5 +1,8 @@
 package com.beautymanager.app.presentation.settings
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,6 +12,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -16,11 +20,55 @@ import com.beautymanager.app.domain.model.ReminderRule
 import com.beautymanager.app.domain.model.AppUser
 import com.beautymanager.app.domain.model.Supplier
 import com.beautymanager.app.domain.repository.ThemeMode
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsState()
+    val backupMessage by viewModel.backupMessage.collectAsState()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var showRestoreConfirm by remember { mutableStateOf<Uri?>(null) }
+    val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd_HHmm", Locale.getDefault()) }
+
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val json = viewModel.exportBackupJson()
+            context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) showRestoreConfirm = uri
+    }
+
+    showRestoreConfirm?.let { uri ->
+        AlertDialog(
+            onDismissRequest = { showRestoreConfirm = null },
+            title = { Text("Restaurar backup?") },
+            text = { Text("Isso substitui TODOS os dados atuais do aparelho pelos dados do arquivo escolhido. Essa ação não pode ser desfeita.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val content = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                    if (content != null) viewModel.onRestoreBackup(content)
+                    showRestoreConfirm = null
+                }) { Text("Restaurar mesmo assim") }
+            },
+            dismissButton = { TextButton(onClick = { showRestoreConfirm = null }) { Text("Cancelar") } }
+        )
+    }
+
+    backupMessage?.let { message ->
+        AlertDialog(
+            onDismissRequest = viewModel::onBackupMessageShown,
+            title = { Text("Backup") },
+            text = { Text(message) },
+            confirmButton = { TextButton(onClick = viewModel::onBackupMessageShown) { Text("OK") } }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -37,6 +85,32 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ThemeMode.entries.forEach { mode ->
                         FilterChip(selected = state.themeMode == mode, onClick = { viewModel.onThemeModeChange(mode) }, label = { Text(mode.name) })
+                    }
+                }
+            }
+
+            item {
+                SectionHeader("Biometria")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Text("Entrar com digital/reconhecimento facial (${state.currentUser?.name ?: "usuário atual"})")
+                    Switch(checked = state.biometricEnabled, onCheckedChange = viewModel::onToggleBiometric)
+                }
+            }
+
+            item {
+                SectionHeader("Backup")
+                Text(
+                    "Exporta ou restaura todos os dados do app (produtos, clientes, vendas, estoque) em um único arquivo .json.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { exportLauncher.launch("beautymanager_backup_${dateFormat.format(java.util.Date())}.json") }) {
+                        Text("Exportar backup")
+                    }
+                    OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json")) }) {
+                        Text("Restaurar backup")
                     }
                 }
             }
@@ -73,7 +147,9 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
             }
 
             item {
-                UsersSection(users = state.users, onAdd = viewModel::onAddEmployee, onDelete = viewModel::onDeleteUser)
+                if (state.currentUser?.canManageUsers != false) {
+                    UsersSection(users = state.users, onAdd = viewModel::onAddEmployee, onDelete = viewModel::onDeleteUser)
+                }
             }
 
             item {

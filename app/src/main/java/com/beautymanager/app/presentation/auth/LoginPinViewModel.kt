@@ -33,11 +33,20 @@ class LoginPinViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             val alreadyConfigured = sessionRepository.isAnyUserConfigured()
-            val biometric = sessionRepository.isBiometricEnabled()
+            val biometric = sessionRepository.isBiometricEnabled() && sessionRepository.getBiometricUserId() != null
             _uiState.value = _uiState.value.copy(
                 needsFirstTimeSetup = !alreadyConfigured,
                 biometricAvailableAndEnabled = biometric
             )
+        }
+    }
+
+    /** Chamado quando o BiometricPrompt do sistema já confirmou a identidade (ver LoginPinScreen). */
+    fun onBiometricSuccess(onDone: () -> Unit) {
+        viewModelScope.launch {
+            val userId = sessionRepository.getBiometricUserId() ?: return@launch
+            val user = sessionRepository.loginDirectly(userId)
+            if (user != null) onDone()
         }
     }
 

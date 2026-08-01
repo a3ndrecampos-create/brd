@@ -37,6 +37,7 @@ class SessionRepositoryImpl @Inject constructor(
     private object Keys {
         val CURRENT_USER_ID = longPreferencesKey("current_user_id")
         val BIOMETRIC_ENABLED = booleanPreferencesKey("biometric_enabled")
+        val BIOMETRIC_USER_ID = longPreferencesKey("biometric_user_id")
         val THEME_MODE = stringPreferencesKey("theme_mode")
     }
 
@@ -45,11 +46,13 @@ class SessionRepositoryImpl @Inject constructor(
     override suspend fun loginWithPin(pin: String): AppUser? {
         val match = userDao.getAll().firstOrNull { it.pinHash == SecurityUtils.hashPin(pin) } ?: return null
         context.sessionDataStore.edit { it[Keys.CURRENT_USER_ID] = match.id }
-        return AppUser(
-            id = match.id, name = match.name, role = UserRole.valueOf(match.role),
-            canManageProducts = match.canManageProducts, canManageSales = match.canManageSales,
-            canViewReports = match.canViewReports, canManageUsers = match.canManageUsers
-        )
+        return match.toAppUser()
+    }
+
+    override suspend fun loginDirectly(userId: Long): AppUser? {
+        val entity = userDao.getById(userId) ?: return null
+        context.sessionDataStore.edit { it[Keys.CURRENT_USER_ID] = entity.id }
+        return entity.toAppUser()
     }
 
     override fun observeCurrentUser(): Flow<AppUser?> =
@@ -58,16 +61,7 @@ class SessionRepositoryImpl @Inject constructor(
                 if (id == null) {
                     emit(null)
                 } else {
-                    val entity = userDao.getById(id)
-                    emit(
-                        entity?.let {
-                            AppUser(
-                                id = it.id, name = it.name, role = UserRole.valueOf(it.role),
-                                canManageProducts = it.canManageProducts, canManageSales = it.canManageSales,
-                                canViewReports = it.canViewReports, canManageUsers = it.canManageUsers
-                            )
-                        }
-                    )
+                    emit(userDao.getById(id)?.toAppUser())
                 }
             }
         }
@@ -79,9 +73,19 @@ class SessionRepositoryImpl @Inject constructor(
     override suspend fun isBiometricEnabled(): Boolean =
         context.sessionDataStore.data.first()[Keys.BIOMETRIC_ENABLED] ?: false
 
-    override suspend fun setBiometricEnabled(enabled: Boolean) {
-        context.sessionDataStore.edit { it[Keys.BIOMETRIC_ENABLED] = enabled }
+    override suspend fun setBiometricEnabled(enabled: Boolean, userId: Long?) {
+        context.sessionDataStore.edit { prefs ->
+            prefs[Keys.BIOMETRIC_ENABLED] = enabled
+            if (enabled && userId != null) {
+                prefs[Keys.BIOMETRIC_USER_ID] = userId
+            } else if (!enabled) {
+                prefs.remove(Keys.BIOMETRIC_USER_ID)
+            }
+        }
     }
+
+    override suspend fun getBiometricUserId(): Long? =
+        context.sessionDataStore.data.first()[Keys.BIOMETRIC_USER_ID]
 
     override fun observeThemeMode(): Flow<ThemeMode> =
         context.sessionDataStore.data.map { prefs ->
@@ -92,6 +96,11 @@ class SessionRepositoryImpl @Inject constructor(
         context.sessionDataStore.edit { it[Keys.THEME_MODE] = mode.name }
     }
 }
+
+private fun com.beautymanager.app.data.local.entity.UserEntity.toAppUser() = AppUser(
+    id = id, name = name, role = UserRole.valueOf(role), canManageProducts = canManageProducts,
+    canManageSales = canManageSales, canViewReports = canViewReports, canManageUsers = canManageUsers
+)
 
 /**
  * Consulta a Open Beauty Facts só para SUGERIR nome/marca/foto ao cadastrar um produto

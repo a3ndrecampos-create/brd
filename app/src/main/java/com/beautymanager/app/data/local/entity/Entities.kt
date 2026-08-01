@@ -2,19 +2,23 @@ package com.beautymanager.app.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
+@Serializable
 @Entity(tableName = "categories")
 data class CategoryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String
 )
 
+@Serializable
 @Entity(tableName = "brands")
 data class BrandEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String
 )
 
+@Serializable
 @Entity(tableName = "suppliers")
 data class SupplierEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -23,6 +27,7 @@ data class SupplierEntity(
     val notes: String? = null
 )
 
+@Serializable
 @Entity(tableName = "products")
 data class ProductEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -43,6 +48,7 @@ data class ProductEntity(
     val totalProfit: Double = 0.0
 )
 
+@Serializable
 @Entity(tableName = "stock_movements")
 data class StockMovementEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -53,6 +59,7 @@ data class StockMovementEntity(
     val notes: String?
 )
 
+@Serializable
 @Entity(tableName = "customers")
 data class CustomerEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -66,6 +73,7 @@ data class CustomerEntity(
     val createdAtEpochMillis: Long
 )
 
+@Serializable
 @Entity(tableName = "sales")
 data class SaleEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -78,6 +86,7 @@ data class SaleEntity(
     val totalProfit: Double
 )
 
+@Serializable
 @Entity(tableName = "sale_items")
 data class SaleItemEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -88,6 +97,7 @@ data class SaleItemEntity(
     val unitCost: Double
 )
 
+@Serializable
 @Entity(tableName = "reminder_rules")
 data class ReminderRuleEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -96,6 +106,7 @@ data class ReminderRuleEntity(
     val messageTemplate: String
 )
 
+@Serializable
 @Entity(tableName = "reminders")
 data class ReminderEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -107,6 +118,7 @@ data class ReminderEntity(
     val generatedAtEpochMillis: Long
 )
 
+@Serializable
 @Entity(tableName = "users")
 data class UserEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

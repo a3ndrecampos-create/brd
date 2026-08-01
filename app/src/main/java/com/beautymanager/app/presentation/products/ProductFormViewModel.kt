@@ -96,15 +96,25 @@ class ProductFormViewModel @Inject constructor(
                     )
                 }
                 is BarcodeLookupResult.SuggestionFound -> {
+                    // A Open Beauty Facts devolve o campo "brands" como texto livre e às vezes com
+                    // mais de uma marca separada por vírgula (ex.: "Natura, Linha Ekos"). Usamos só a
+                    // primeira e casamos (ou criamos) a marca correspondente no catálogo local, para o
+                    // produto já nascer com brandId preenchido em vez de um texto solto.
+                    val matchedBrandId = result.info.brandName
+                        ?.split(",")
+                        ?.firstOrNull()
+                        ?.trim()
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { brandName -> findOrCreateBrand(brandName) }
+
                     _formState.value = _formState.value.copy(
                         barcode = result.barcode,
                         name = result.info.name ?: _formState.value.name,
                         photoUri = result.info.imageUrl ?: _formState.value.photoUri,
+                        brandId = matchedBrandId ?: _formState.value.brandId,
                         isLookingUpBarcode = false,
                         barcodeLookupMessage = "Dados encontrados na base pública — confira antes de salvar."
                     )
-                    // Nota: result.info.brandName vem como texto livre (ex.: "Natura, Avon");
-                    // TODO: casar/criar a marca correspondente em brandRepository automaticamente.
                 }
                 is BarcodeLookupResult.NotFound -> {
                     _formState.value = _formState.value.copy(
@@ -114,6 +124,13 @@ class ProductFormViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /** Procura uma marca pelo nome (case-insensitive) no catálogo atual; cria se não existir. */
+    private suspend fun findOrCreateBrand(name: String): Long? {
+        val existing = options.value.brands.firstOrNull { it.name.equals(name, ignoreCase = true) }
+        if (existing != null) return existing.id
+        return brandRepository.upsert(Brand(name = name))
     }
 
     fun onSave() {

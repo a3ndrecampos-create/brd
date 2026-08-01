@@ -2,6 +2,7 @@ package com.beautymanager.app.presentation.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.beautymanager.app.core.backup.BackupManager
 import com.beautymanager.app.domain.model.*
 import com.beautymanager.app.domain.repository.*
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,7 +20,9 @@ data class SettingsUiState(
     val suppliers: List<Supplier> = emptyList(),
     val reminderRules: List<ReminderRule> = emptyList(),
     val users: List<AppUser> = emptyList(),
-    val themeMode: ThemeMode = ThemeMode.SISTEMA
+    val themeMode: ThemeMode = ThemeMode.SISTEMA,
+    val currentUser: AppUser? = null,
+    val biometricEnabled: Boolean = false
 )
 
 @HiltViewModel
@@ -29,12 +32,20 @@ class SettingsViewModel @Inject constructor(
     private val supplierRepository: SupplierRepository,
     private val reminderRuleRepository: ReminderRuleRepository,
     private val userRepository: UserRepository,
-    private val sessionRepository: SessionRepository
+    private val sessionRepository: SessionRepository,
+    private val backupManager: BackupManager
 ) : ViewModel() {
+
+    private val biometricEnabledFlow = MutableStateFlow(false)
+
+    init {
+        viewModelScope.launch { biometricEnabledFlow.value = sessionRepository.isBiometricEnabled() }
+    }
 
     val uiState: StateFlow<SettingsUiState> = combine(
         categoryRepository.observeAll(), brandRepository.observeAll(), supplierRepository.observeAll(),
-        reminderRuleRepository.observeAll(), userRepository.observeAll(), sessionRepository.observeThemeMode()
+        reminderRuleRepository.observeAll(), userRepository.observeAll(), sessionRepository.observeThemeMode(),
+        sessionRepository.observeCurrentUser(), biometricEnabledFlow
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         SettingsUiState(
@@ -43,9 +54,19 @@ class SettingsViewModel @Inject constructor(
             suppliers = values[2] as List<Supplier>,
             reminderRules = values[3] as List<ReminderRule>,
             users = values[4] as List<AppUser>,
-            themeMode = values[5] as ThemeMode
+            themeMode = values[5] as ThemeMode,
+            currentUser = values[6] as AppUser?,
+            biometricEnabled = values[7] as Boolean
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
+
+    fun onToggleBiometric(enabled: Boolean) {
+        val userId = uiState.value.currentUser?.id ?: return
+        viewModelScope.launch {
+            sessionRepository.setBiometricEnabled(enabled, userId)
+            biometricEnabledFlow.value = enabled
+        }
+    }
 
     fun onAddCategory(name: String) { if (name.isNotBlank()) viewModelScope.launch { categoryRepository.upsert(Category(name = name)) } }
     fun onDeleteCategory(id: Long) { viewModelScope.launch { categoryRepository.delete(id) } }
@@ -80,4 +101,23 @@ class SettingsViewModel @Inject constructor(
     fun onThemeModeChange(mode: ThemeMode) { viewModelScope.launch { sessionRepository.setThemeMode(mode) } }
 
     fun onLogout() { viewModelScope.launch { sessionRepository.logout() } }
+
+    private val _backupMessage = MutableStateFlow<String?>(null)
+    val backupMessage: StateFlow<String?> = _backupMessage
+
+    /** Chamado depois que a tela já tem a Uri escolhida pelo usuário (via SAF) e escreveu o conteúdo. */
+    suspend fun exportBackupJson(): String = backupManager.exportToJson()
+
+    fun onRestoreBackup(jsonContent: String) {
+        viewModelScope.launch {
+            try {
+                backupManager.importFromJson(jsonContent)
+                _backupMessage.value = "Backup restaurado com sucesso. Reabra o app para ver os dados atualizados."
+            } catch (e: Exception) {
+                _backupMessage.value = "Não foi possível restaurar: ${e.message}"
+            }
+        }
+    }
+
+    fun onBackupMessageShown() { _backupMessage.value = null }
 }
