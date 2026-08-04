@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -16,6 +17,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.beautymanager.app.domain.model.Customer
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun CustomerListScreen(
@@ -75,17 +79,20 @@ private fun CustomerRow(customer: Customer, onClick: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddCustomerDialog(
     onDismiss: () -> Unit,
     onConfirm: (
-        name: String, phone: String, whatsapp: String, zipCode: String, street: String,
-        number: String, complement: String, neighborhood: String, city: String, state: String
+        name: String, phone: String, whatsapp: String, birthDateEpochMillis: Long?, zipCode: String,
+        street: String, number: String, complement: String, neighborhood: String, city: String, state: String
     ) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var whatsapp by remember { mutableStateOf("") }
+    var birthDateEpochMillis by remember { mutableStateOf<Long?>(null) }
+    var showDatePicker by remember { mutableStateOf(false) }
     var zipCode by remember { mutableStateOf("") }
     var street by remember { mutableStateOf("") }
     var number by remember { mutableStateOf("") }
@@ -93,6 +100,7 @@ private fun AddCustomerDialog(
     var neighborhood by remember { mutableStateOf("") }
     var city by remember { mutableStateOf("") }
     var state by remember { mutableStateOf("") }
+    val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy", Locale("pt", "BR")) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -104,6 +112,15 @@ private fun AddCustomerDialog(
                 OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Telefone") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(value = whatsapp, onValueChange = { whatsapp = it }, label = { Text("WhatsApp (se diferente)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = birthDateEpochMillis?.let { dateFormat.format(Date(it)) } ?: "",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Data de nascimento") },
+                    trailingIcon = { Icon(Icons.Filled.Cake, contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth().clickableNoRipple { showDatePicker = true }
+                )
 
                 Spacer(Modifier.height(16.dp))
                 Text("Endereço", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -128,9 +145,34 @@ private fun AddCustomerDialog(
         confirmButton = {
             TextButton(
                 enabled = name.isNotBlank(),
-                onClick = { onConfirm(name, phone, whatsapp, zipCode, street, number, complement, neighborhood, city, state) }
+                onClick = { onConfirm(name, phone, whatsapp, birthDateEpochMillis, zipCode, street, number, complement, neighborhood, city, state) }
             ) { Text("Salvar") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
     )
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState()
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    birthDateEpochMillis = datePickerState.selectedDateMillis
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancelar") } }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 }
+
+/** Torna um campo somente-leitura "clicável" sem o efeito visual de ripple do texto em si. */
+internal fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier = this.then(
+    androidx.compose.foundation.clickable(
+        interactionSource = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+        indication = null,
+        onClick = onClick
+    )
+)

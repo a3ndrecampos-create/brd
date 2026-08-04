@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -86,24 +87,28 @@ fun CustomerDetailScreen(
         EditCustomerDialog(
             customer = state.customer!!,
             onDismiss = { showEditDialog = false },
-            onConfirm = { name, phone, whatsapp, address ->
-                viewModel.onUpdateCustomer(name, phone, whatsapp, address)
+            onConfirm = { name, phone, whatsapp, birthDateEpochMillis, address ->
+                viewModel.onUpdateCustomer(name, phone, whatsapp, birthDateEpochMillis, address)
                 showEditDialog = false
             }
         )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditCustomerDialog(
     customer: com.beautymanager.app.domain.model.Customer,
     onDismiss: () -> Unit,
-    onConfirm: (name: String, phone: String, whatsapp: String, address: String) -> Unit
+    onConfirm: (name: String, phone: String, whatsapp: String, birthDateEpochMillis: Long?, address: String) -> Unit
 ) {
     var name by remember { mutableStateOf(customer.name) }
     var phone by remember { mutableStateOf(customer.phone ?: "") }
     var whatsapp by remember { mutableStateOf(customer.whatsapp ?: "") }
+    var birthDateEpochMillis by remember { mutableStateOf(customer.birthDateEpochMillis) }
+    var showDatePicker by remember { mutableStateOf(false) }
     var address by remember { mutableStateOf(customer.address ?: "") }
+    val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy", Locale("pt", "BR")) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -116,17 +121,42 @@ private fun EditCustomerDialog(
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(value = whatsapp, onValueChange = { whatsapp = it }, label = { Text("WhatsApp") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = birthDateEpochMillis?.let { dateFormat.format(Date(it)) } ?: "",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Data de nascimento") },
+                    trailingIcon = { Icon(Icons.Filled.Cake, contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth().clickableNoRipple { showDatePicker = true }
+                )
+                Spacer(Modifier.height(8.dp))
                 OutlinedTextField(value = address, onValueChange = { address = it }, label = { Text("Endereço completo") }, minLines = 3, modifier = Modifier.fillMaxWidth())
             }
         },
         confirmButton = {
             TextButton(
                 enabled = name.isNotBlank(),
-                onClick = { onConfirm(name, phone, whatsapp, address) }
+                onClick = { onConfirm(name, phone, whatsapp, birthDateEpochMillis, address) }
             ) { Text("Salvar") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
     )
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = birthDateEpochMillis)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    birthDateEpochMillis = datePickerState.selectedDateMillis
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancelar") } }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 }
 
 @Composable

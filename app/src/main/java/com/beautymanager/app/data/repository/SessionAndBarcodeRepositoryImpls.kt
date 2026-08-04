@@ -9,6 +9,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.beautymanager.app.core.util.SecurityUtils
 import com.beautymanager.app.data.local.dao.UserDao
 import com.beautymanager.app.data.remote.barcode.BarcodeApi
+import com.beautymanager.app.data.remote.barcode.CosmosApi
 import com.beautymanager.app.domain.model.AppUser
 import com.beautymanager.app.domain.model.UserRole
 import com.beautymanager.app.domain.repository.BarcodeLookupRepository
@@ -103,16 +104,43 @@ private fun com.beautymanager.app.data.local.entity.UserEntity.toAppUser() = App
 )
 
 /**
- * Consulta a Open Beauty Facts só para SUGERIR nome/marca/foto ao cadastrar um produto
- * novo pelo código de barras. Cobertura é comunitária/parcial — quando não achar, a tela
- * cai para preenchimento manual (ver LookupProductByBarcodeUseCase).
+ * Consulta bases públicas de produto só para SUGERIR nome/marca/foto ao cadastrar
+ * um produto novo pelo código de barras — o usuário sempre confirma preço de
+ * custo, venda e quantidade manualmente. Tenta primeiro a Bluesoft Cosmos (melhor
+ * cobertura de produtos brasileiros, mas exige token cadastrado); se não tiver
+ * token configurado, ou a consulta falhar/não achar, cai para a Open Beauty Facts
+ * (pública, sem chave). Se nenhuma achar, a tela cai para preenchimento manual
+ * (ver LookupProductByBarcodeUseCase) — nunca quebra o fluxo de cadastro.
  */
 class BarcodeLookupRepositoryImpl @Inject constructor(
-    private val api: BarcodeApi
+    private val openBeautyFactsApi: BarcodeApi,
+    private val cosmosApi: CosmosApi
 ) : BarcodeLookupRepository {
+
     override suspend fun lookup(barcode: String): BarcodeProductInfo? {
+        if (com.beautymanager.app.BuildConfig.COSMOS_API_TOKEN.isNotBlank()) {
+            lookupOnCosmos(barcode)?.let { return it }
+        }
+        return lookupOnOpenBeautyFacts(barcode)
+    }
+
+    private suspend fun lookupOnCosmos(barcode: String): BarcodeProductInfo? {
         return try {
-            val response = api.getProduct(barcode)
+            val response = cosmosApi.getProduct(barcode)
+            if (response.description.isNullOrBlank()) return null
+            BarcodeProductInfo(
+                name = response.description,
+                brandName = response.brand?.name,
+                imageUrl = response.thumbnail
+            )
+        } catch (e: Exception) {
+            null // Sem token válido, sem internet, ou GTIN não encontrado: tenta a próxima fonte.
+        }
+    }
+
+    private suspend fun lookupOnOpenBeautyFacts(barcode: String): BarcodeProductInfo? {
+        return try {
+            val response = openBeautyFactsApi.getProduct(barcode)
             if (response.status != 1 || response.product == null) return null
             val product = response.product
             BarcodeProductInfo(

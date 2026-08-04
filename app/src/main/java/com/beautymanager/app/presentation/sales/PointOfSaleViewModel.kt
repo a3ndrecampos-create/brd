@@ -3,6 +3,7 @@ package com.beautymanager.app.presentation.sales
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.beautymanager.app.domain.model.CartItem
+import com.beautymanager.app.domain.model.Customer
 import com.beautymanager.app.domain.model.PaymentMethod
 import com.beautymanager.app.domain.model.Product
 import com.beautymanager.app.domain.repository.CustomerRepository
@@ -37,6 +38,9 @@ data class PointOfSaleUiState(
     val paymentMethod: PaymentMethod = PaymentMethod.PIX,
     val selectedCustomerId: Long? = null,
     val selectedCustomerName: String? = null,
+    val customerSkipped: Boolean = false,
+    val customerSearchQuery: String = "",
+    val customerSearchResults: List<Customer> = emptyList(),
     val completedSale: CompletedSaleSummary? = null,
     val errorMessage: String? = null
 ) {
@@ -117,12 +121,39 @@ class PointOfSaleViewModel @Inject constructor(
     }
 
     fun onSelectCustomer(id: Long?, name: String?) {
-        _uiState.value = _uiState.value.copy(selectedCustomerId = id, selectedCustomerName = name)
+        _uiState.value = _uiState.value.copy(
+            selectedCustomerId = id, selectedCustomerName = name, customerSkipped = false,
+            customerSearchQuery = "", customerSearchResults = emptyList()
+        )
+    }
+
+    /** Venda de balcão sem identificar o cliente — decisão explícita, não o padrão silencioso. */
+    fun onSkipCustomer() {
+        _uiState.value = _uiState.value.copy(
+            selectedCustomerId = null, selectedCustomerName = null, customerSkipped = true,
+            customerSearchQuery = "", customerSearchResults = emptyList()
+        )
+    }
+
+    fun onCustomerSearchQueryChange(query: String) {
+        _uiState.value = _uiState.value.copy(customerSearchQuery = query)
+        viewModelScope.launch {
+            if (query.isBlank()) {
+                _uiState.value = _uiState.value.copy(customerSearchResults = emptyList())
+                return@launch
+            }
+            val first = customerRepository.observeAll(query).firstOrNull()
+            _uiState.value = _uiState.value.copy(customerSearchResults = first ?: emptyList())
+        }
     }
 
     fun onCheckout() {
         val state = _uiState.value
         if (state.cartItems.isEmpty()) return
+        if (state.selectedCustomerId == null && !state.customerSkipped) {
+            _uiState.value = state.copy(errorMessage = "Selecione o cliente ou toque em \"Venda sem cliente\" antes de finalizar.")
+            return
+        }
         viewModelScope.launch {
             val seller = sessionRepository.observeCurrentUser().firstOrNull()
             if (seller == null) {
@@ -145,7 +176,7 @@ class PointOfSaleViewModel @Inject constructor(
                             total = state.total,
                             discount = state.discount.toDoubleOrNull() ?: 0.0,
                             paymentMethod = state.paymentMethod,
-                            customerName = state.selectedCustomerName,
+                            customerName = state.selectedCustomerName ?: "Consumidor não identificado",
                             dateTimeEpochMillis = System.currentTimeMillis()
                         )
                     )

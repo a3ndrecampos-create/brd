@@ -45,7 +45,7 @@ class CustomerDetailViewModel @Inject constructor(
         }
     }
 
-    fun onUpdateCustomer(name: String, phone: String, whatsapp: String, address: String) {
+    fun onUpdateCustomer(name: String, phone: String, whatsapp: String, birthDateEpochMillis: Long?, address: String) {
         val current = _uiState.value.customer ?: return
         if (name.isBlank()) return
         viewModelScope.launch {
@@ -53,6 +53,7 @@ class CustomerDetailViewModel @Inject constructor(
                 name = name,
                 phone = phone.ifBlank { null },
                 whatsapp = whatsapp.ifBlank { null },
+                birthDateEpochMillis = birthDateEpochMillis,
                 address = address.ifBlank { null }
             )
             customerRepository.upsert(updated)

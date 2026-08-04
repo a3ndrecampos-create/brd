@@ -15,9 +15,11 @@ uma implementação com sincronização, sem tocar em domínio ou telas.
 - Hilt para injeção de dependência
 - Room (SQLite) para persistência local
 - DataStore para sessão (usuário logado, biometria, tema)
-- Retrofit + kotlinx.serialization para consultar a **Open Beauty Facts**
-  (`https://world.openbeautyfacts.org`) — API pública/gratuita de produtos de
-  cosméticos, usada só para sugerir nome/marca/foto ao ler um código de barras novo
+- Retrofit + kotlinx.serialization para consultar a **Bluesoft Cosmos**
+  (`https://cosmos.bluesoft.com.br`) — base de produtos brasileira, tentada
+  primeiro (exige token cadastrado), com fallback automático para a **Open
+  Beauty Facts** (pública, sem chave) — usadas só para sugerir nome/marca/foto
+  ao ler um código de barras novo
 - CameraX + ML Kit Barcode Scanning para o leitor de código de barras (câmera)
 - WorkManager (+ Hilt Worker) para recalcular os lembretes de recompra uma vez por dia
 - Gráficos feitos com Canvas nativo do Compose (sem lib de terceiros)
@@ -64,16 +66,35 @@ core/
 - **100% local por enquanto**: nenhuma sincronização entre dispositivos. Se no
   futuro for necessário multi-loja/multi-funcionário em dispositivos diferentes,
   o ponto de troca é `RepositoryModule` — os `UseCase`s e telas não mudam.
-- **Open Beauty Facts em vez de Open Food Facts**: mesma API, mesmo formato, mas
-  o catálogo é de cosméticos/higiene/perfumaria — mais aderente ao negócio. É uma
-  base colaborativa, então a cobertura varia; quando não encontrar, cai para
-  cadastro manual e o código nunca é pedido de novo (fica salvo localmente).
+- **Bluesoft Cosmos com fallback para Open Beauty Facts**: a Cosmos tem cobertura
+  muito melhor de produtos brasileiros de mercado/farmácia/cosméticos, mas exige
+  cadastro (token + User-Agent). Sem essas credenciais configuradas, o app cai
+  automaticamente para a Open Beauty Facts (pública, cobertura menor mas sem
+  fricção nenhuma) — nunca trava o cadastro por falta de token.
 - **PIN com hash SHA-256 + salt fixo**: funcional para este estágio, mas antes de
   ir para produção o ideal é trocar o salt fixo por um salt por instalação gerado
   no Android Keystore.
 - **Sem lib de gráficos de terceiros**: o Vico (uma opção comum) ainda está em
   beta e sua API muda entre versões; para os gráficos simples que o app precisa
   (barras de produtos mais vendidos), um Canvas nativo é mais previsível e leve.
+
+## Configurando a Bluesoft Cosmos (opcional, mas recomendado)
+
+1. Cadastre-se em https://cosmos.bluesoft.com.br e pegue seu **token** e
+   **User-Agent** (ambos ficam disponíveis na sua área logada).
+2. Copie `local.properties.example` para `local.properties` (esse arquivo já
+   está no `.gitignore` — nunca vai para o Git) e preencha:
+   ```
+   COSMOS_API_TOKEN=seu_token_aqui
+   COSMOS_USER_AGENT=seu_user_agent_aqui
+   ```
+3. Rodando localmente pelo Android Studio, isso já é suficiente.
+4. Para o **GitHub Actions** também usar a Cosmos no APK gerado, configure os
+   mesmos dois valores em Settings → Secrets and variables → Actions →
+   New repository secret (`COSMOS_API_TOKEN` e `COSMOS_USER_AGENT`).
+
+Sem nada disso configurado, o app funciona normalmente usando só a Open Beauty
+Facts.
 
 ## CI/CD
 
@@ -89,7 +110,7 @@ para a Play Store, é o build de debug para testar no aparelho.
 1. **Biometria de verdade**: `BiometricPrompt` funcional (login sem PIN quando
    habilitado em Configurações, por usuário).
 2. **Marca casada automaticamente**: ao ler um código de barras novo, o nome de
-   marca vindo da Open Beauty Facts agora vira (ou casa com) um `Brand` real no
+   marca vindo da base consultada agora vira (ou casa com) um `Brand` real no
    catálogo, em vez de ficar como texto solto.
 3. **Permissões por funcionário**: `AppUser.canManageProducts/canViewReports/
    canManageUsers` agora realmente escondem, respectivamente, o botão de
@@ -102,6 +123,22 @@ para a Play Store, é o build de debug para testar no aparelho.
    `.json` com todo o banco (produtos, clientes, vendas, estoque...) via seletor
    de arquivos do Android; "Restaurar backup" lê um `.json` e substitui os dados
    atuais (com confirmação explícita, porque é destrutivo).
+6. **Bluesoft Cosmos** como primeira fonte de busca por código de barras
+   (fallback automático para Open Beauty Facts).
+7. **Foto do produto manual**: além da foto vinda da busca automática, dá pra
+   escolher uma foto da galeria no cadastro do produto.
+8. **Scanner de código de barras no PDV**: além de buscar por nome, agora dá
+   pra ler o código de barras direto na tela de venda e o produto cai no
+   carrinho automaticamente.
+9. **Data de aniversário do cliente**: cadastro e edição agora pedem a data de
+   nascimento (com seletor de calendário) — isso alimenta de verdade o card
+   "Aniversariantes do mês" do Dashboard, que antes nunca tinha dado.
+10. **Cliente obrigatório na venda**: o PDV agora pede pra selecionar (ou
+    buscar) um cliente antes de finalizar, com uma opção explícita "Venda sem
+    identificar cliente" para vendas de balcão rápidas — a venda nunca mais
+    fica "sem ninguém" atrelada sem essa decisão consciente.
+11. **`.gitignore` do projeto**: não existia; sem ele, o `local.properties`
+    (com o token da Cosmos) poderia acabar indo pro Git por engano.
 
 ## O que ainda é TODO (próximas rodadas)
 
@@ -120,6 +157,7 @@ para a Play Store, é o build de debug para testar no aparelho.
 ## Rodando o projeto
 
 Abra a pasta no Android Studio (Ladybug ou mais recente), deixe o Gradle
-sincronizar e rode no emulador ou aparelho físico (`minSdk 26`). Não é
-necessária nenhuma chave de API para funcionar — a Open Beauty Facts é pública.
+sincronizar e rode no emulador ou aparelho físico (`minSdk 26`). Funciona sem
+nenhuma chave de API (usa a Open Beauty Facts, pública) — para usar a Bluesoft
+Cosmos também, veja a seção "Configurando a Bluesoft Cosmos" acima.
 Ou, sem instalar nada, deixe o GitHub Actions gerar o APK (ver seção CI/CD acima).

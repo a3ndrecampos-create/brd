@@ -1,0 +1,28 @@
+*.iml
+.gradle/
+/local.properties
+.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Android Studio / Gradle
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+bin/
+gen/
+out/
+
+# Cada módulo do Gradle
+app/build/
+build/
+
+# Keystore de assinatura de release — nunca deve ir para o Git
+*.jks
+*.keystore

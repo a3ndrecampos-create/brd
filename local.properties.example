@@ -1,0 +1,11 @@
+# Copie este arquivo para "local.properties" (sem o .example) na raiz do projeto.
+# O local.properties já está no .gitignore — nunca será enviado ao Git.
+
+# Token e User-Agent da Bluesoft Cosmos (cadastre-se em https://cosmos.bluesoft.com.br
+# para conseguir os dois). Sem eles, o app funciona normalmente e usa só a Open
+# Beauty Facts (pública) para sugerir nome/marca/foto ao ler um código de barras.
+COSMOS_API_TOKEN=
+COSMOS_USER_AGENT=
+
+# Caminho do SDK do Android (o Android Studio preenche isso automaticamente).
+# sdk.dir=/caminho/para/o/Android/Sdk

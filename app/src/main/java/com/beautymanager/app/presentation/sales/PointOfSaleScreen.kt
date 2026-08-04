@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PersonOff
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
@@ -18,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.beautymanager.app.domain.model.CartItem
+import com.beautymanager.app.domain.model.Customer
 import com.beautymanager.app.domain.model.PaymentMethod
 import com.beautymanager.app.domain.model.Product
 import com.beautymanager.app.presentation.products.BarcodeScannerScreen
@@ -30,6 +33,7 @@ fun PointOfSaleScreen(viewModel: PointOfSaleViewModel = hiltViewModel()) {
     val currency = remember { NumberFormat.getCurrencyInstance(Locale("pt", "BR")) }
     val context = androidx.compose.ui.platform.LocalContext.current
     var showScanner by remember { mutableStateOf(false) }
+    var showCustomerPicker by remember { mutableStateOf(false) }
 
     if (showScanner) {
         BarcodeScannerScreen(
@@ -44,6 +48,13 @@ fun PointOfSaleScreen(viewModel: PointOfSaleViewModel = hiltViewModel()) {
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Venda", style = MaterialTheme.typography.headlineMedium)
+        Spacer(Modifier.height(12.dp))
+
+        CustomerSelectorCard(
+            selectedName = state.selectedCustomerName,
+            skipped = state.customerSkipped,
+            onClick = { showCustomerPicker = true }
+        )
         Spacer(Modifier.height(12.dp))
 
         OutlinedTextField(
@@ -137,6 +148,87 @@ fun PointOfSaleScreen(viewModel: PointOfSaleViewModel = hiltViewModel()) {
             onDismiss = viewModel::onReceiptDismissed
         )
     }
+
+    if (showCustomerPicker) {
+        CustomerPickerDialog(
+            query = state.customerSearchQuery,
+            results = state.customerSearchResults,
+            onQueryChange = viewModel::onCustomerSearchQueryChange,
+            onSelect = { id, name -> viewModel.onSelectCustomer(id, name); showCustomerPicker = false },
+            onSkip = { viewModel.onSkipCustomer(); showCustomerPicker = false },
+            onDismiss = { showCustomerPicker = false }
+        )
+    }
+}
+
+@Composable
+private fun CustomerSelectorCard(selectedName: String?, skipped: Boolean, onClick: () -> Unit) {
+    val label = selectedName ?: if (skipped) "Consumidor não identificado" else "Selecionar cliente"
+    val isPending = selectedName == null && !skipped
+    ElevatedCard(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = if (isPending) CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.primaryContainer) else CardDefaults.elevatedCardColors()
+    ) {
+        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                if (skipped) Icons.Filled.PersonOff else Icons.Filled.Person,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Cliente", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(label, style = MaterialTheme.typography.titleMedium)
+            }
+            TextButton(onClick = onClick) { Text(if (isPending) "Selecionar" else "Trocar") }
+        }
+    }
+}
+
+@Composable
+private fun CustomerPickerDialog(
+    query: String,
+    results: List<Customer>,
+    onQueryChange: (String) -> Unit,
+    onSelect: (Long, String) -> Unit,
+    onSkip: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Selecionar cliente") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    placeholder = { Text("Buscar por nome ou telefone") },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
+                    items(results, key = { it.id }) { customer ->
+                        ListItem(
+                            headlineContent = { Text(customer.name) },
+                            supportingContent = customer.phone?.let { phone -> { Text(phone) } },
+                            modifier = Modifier.clickable { onSelect(customer.id, customer.name) }
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Filled.PersonOff, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Venda sem identificar cliente")
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+    )
 }
 
 @Composable

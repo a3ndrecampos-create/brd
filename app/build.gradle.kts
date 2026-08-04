@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -6,6 +8,28 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
+
+// Bluesoft Cosmos: base de produtos brasileira usada como primeira tentativa na
+// leitura de código de barras (fallback automático para a Open Beauty Facts se
+// não houver token configurado ou a consulta falhar). Cadastre-se em
+// https://cosmos.bluesoft.com.br para conseguir o token e o User-Agent, e
+// configure-os no local.properties (NUNCA no build.gradle, pra não vazar no Git):
+//   COSMOS_API_TOKEN=seu_token_aqui
+//   COSMOS_USER_AGENT=seu_user_agent_aqui
+//
+// Lida no nível raiz do script (fora do bloco android{}) de propósito: dentro de
+// defaultConfig{} o Kotlin DSL do Gradle não resolve "java.util.Properties"
+// corretamente por causa dos receivers implícitos aninhados da AGP.
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { stream -> load(stream) }
+}
+val cosmosApiToken: String = localProperties.getProperty("COSMOS_API_TOKEN")
+    ?: System.getenv("COSMOS_API_TOKEN")
+    ?: ""
+val cosmosUserAgent: String = localProperties.getProperty("COSMOS_USER_AGENT")
+    ?: System.getenv("COSMOS_USER_AGENT")
+    ?: ""
 
 android {
     namespace = "com.beautymanager.app"
@@ -20,13 +44,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Reservado para uma futura API de produtos paga (Bluesoft Cosmos, EAN-DB etc.).
-        // Hoje a busca por código de barras usa a Open Food Facts (pública, sem chave).
-        val productApiKey = (project.findProperty("PRODUCT_API_KEY") as String?)
-            ?.takeIf { it.isNotBlank() }
-            ?: System.getenv("PRODUCT_API_KEY")
-            ?: ""
-        buildConfigField("String", "PRODUCT_API_KEY", "\"$productApiKey\"")
+        buildConfigField("String", "COSMOS_API_TOKEN", "\"$cosmosApiToken\"")
+        buildConfigField("String", "COSMOS_USER_AGENT", "\"$cosmosUserAgent\"")
     }
 
     buildTypes {

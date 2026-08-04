@@ -1,0 +1,52 @@
+name: Build APK
+
+# Gera o APK de debug a cada push/PR na main e disponibiliza como artefato para
+# download na aba "Actions" do GitHub (Summary da execução > Artifacts).
+# Funciona sem nenhum segredo configurado (cai para a Open Beauty Facts, pública).
+# Para usar a Bluesoft Cosmos (melhor cobertura de produtos BR), configure em
+# Settings > Secrets and variables > Actions:
+#   COSMOS_API_TOKEN, COSMOS_USER_AGENT
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Cache do Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+
+      - name: Dar permissão de execução ao gradlew
+        run: chmod +x ./gradlew
+
+      - name: Build do APK de debug
+        env:
+          COSMOS_API_TOKEN: ${{ secrets.COSMOS_API_TOKEN }}
+          COSMOS_USER_AGENT: ${{ secrets.COSMOS_USER_AGENT }}
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Publicar o APK como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: beautymanager-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

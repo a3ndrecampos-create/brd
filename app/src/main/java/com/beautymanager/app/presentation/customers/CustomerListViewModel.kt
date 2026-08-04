@@ -44,6 +44,7 @@ class CustomerListViewModel @Inject constructor(
         name: String,
         phone: String,
         whatsapp: String,
+        birthDateEpochMillis: Long?,
         zipCode: String,
         street: String,
         number: String,
@@ -59,6 +60,7 @@ class CustomerListViewModel @Inject constructor(
                     name = name,
                     phone = phone.ifBlank { null },
                     whatsapp = whatsapp.ifBlank { phone.ifBlank { null } },
+                    birthDateEpochMillis = birthDateEpochMillis,
                     address = buildFullAddress(zipCode, street, number, complement, neighborhood, city, state),
                     createdAtEpochMillis = System.currentTimeMillis()
                 )
